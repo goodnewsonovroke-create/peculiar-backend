@@ -5,32 +5,35 @@ const mongoose = require('mongoose');
 const app = express();
 const PORT = process.env.PORT || 10000;
 
+// Increase payload limit because images (base64 strings) can be large!
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); 
 
-// 1. CONNECT TO MONGODB ATLAS (Using the secure Render Vault key)
 const mongoURI = process.env.MONGO_URI; 
 
 mongoose.connect(mongoURI)
   .then(() => console.log('✅ Connected to Permanent MongoDB Database!'))
   .catch(err => console.error('❌ MongoDB Connection Error:', err));
 
-// 2. DEFINE WHAT A "STUDENT" LOOKS LIKE IN THE DATABASE
+// 1. UPGRADED DATABASE SCHEMA (Now holds EVERYTHING)
 const studentSchema = new mongoose.Schema({
     name: { type: String, required: true },
-    id: { type: String, required: true, unique: true }, // 'unique' means no two students can have the same ID!
+    id: { type: String, required: true, unique: true },
+    studentClass: String,
+    term: String,
+    photoData: String, // This stores the image!
+    subjects: Array,   // This stores the list of subjects and scores
+    affective: Object, // This stores the 1-5 ratings
+    remarks: Object    // This stores the teacher/principal comments
 });
 
-// Create the model (like a permanent filing cabinet for students)
 const Student = mongoose.model('Student', studentSchema);
 
-// 3. THE SEARCH PORTAL (For Students and Parents)
 app.get('/api/check-result', async (req, res) => {
     try {
         const studentName = req.query.name.trim();
         const studentId = req.query.id.trim().toUpperCase();
 
-        // Search the actual MongoDB database! (Case-insensitive search for name)
         const student = await Student.findOne({ 
             id: studentId,
             name: { $regex: new RegExp(`^${studentName}$`, 'i') } 
@@ -47,22 +50,24 @@ app.get('/api/check-result', async (req, res) => {
     }
 });
 
-// 4. THE UPLOAD PORTAL (For Staff)
+// 2. UPGRADED UPLOAD ROUTE
 app.post('/api/upload-result', async (req, res) => {
     try {
-        // Create a new student record
         const newStudent = new Student({
             name: req.body.name.toUpperCase(),
-            id: req.body.id.toUpperCase()
+            id: req.body.id.toUpperCase(),
+            studentClass: req.body.studentClass,
+            term: req.body.term,
+            photoData: req.body.photoData,
+            subjects: req.body.subjects,
+            affective: req.body.affective,
+            remarks: req.body.remarks
         });
         
-        // Save it permanently to MongoDB!
         await newStudent.save();
-        
         res.json({ message: "Upload successful!" });
     } catch (error) {
         console.error("Upload Error:", error);
-        // If the ID already exists, send a specific error to the frontend
         if (error.code === 11000) {
             return res.status(400).json({ message: "Error: A student with this ID already exists." });
         }
@@ -70,7 +75,6 @@ app.post('/api/upload-result', async (req, res) => {
     }
 });
 
-// Start the server
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
