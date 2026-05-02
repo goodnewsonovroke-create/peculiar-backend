@@ -8,7 +8,7 @@ const PORT = process.env.PORT || 10000;
 app.use(cors());
 app.use(express.json());
 
-// 1. CONNECT TO MONGODB ATLAS
+// 1. CONNECT TO MONGODB ATLAS (Using the secure Render Vault key)
 const mongoURI = process.env.MONGO_URI; 
 
 mongoose.connect(mongoURI)
@@ -19,14 +19,12 @@ mongoose.connect(mongoURI)
 const studentSchema = new mongoose.Schema({
     name: { type: String, required: true },
     id: { type: String, required: true, unique: true }, // 'unique' means no two students can have the same ID!
-    // We will add grades here later when you expand the form!
 });
 
-// Create the model (like a filing cabinet for students)
+// Create the model (like a permanent filing cabinet for students)
 const Student = mongoose.model('Student', studentSchema);
 
-
-// 3. THE SEARCH PORTAL (For Students)
+// 3. THE SEARCH PORTAL (For Students and Parents)
 app.get('/api/check-result', async (req, res) => {
     try {
         const studentName = req.query.name.trim();
@@ -44,7 +42,7 @@ app.get('/api/check-result', async (req, res) => {
             res.status(404).json({ message: "Student not found in database." });
         }
     } catch (error) {
-        console.error(error);
+        console.error("Search Error:", error);
         res.status(500).json({ message: "Server error searching database." });
     }
 });
@@ -63,8 +61,8 @@ app.post('/api/upload-result', async (req, res) => {
         
         res.json({ message: "Upload successful!" });
     } catch (error) {
-        console.error(error);
-        // If the ID already exists, send a specific error
+        console.error("Upload Error:", error);
+        // If the ID already exists, send a specific error to the frontend
         if (error.code === 11000) {
             return res.status(400).json({ message: "Error: A student with this ID already exists." });
         }
