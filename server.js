@@ -5,6 +5,17 @@ const mongoose = require('mongoose');
 const app = express();
 const PORT = process.env.PORT || 10000;
 
+// 1. TRUST PROXY & HTTPS REDIRECT
+// This tells Express to trust the InfinityFree/Render proxy and force HTTPS
+app.set('trust proxy', true);
+
+app.use((req, res, next) => {
+    if (!req.secure && req.get('x-forwarded-proto') !== 'https' && process.env.NODE_ENV === 'production') {
+        return res.redirect('https://' + req.get('host') + req.url);
+    }
+    next();
+});
+
 // Increase payload limit because images (base64 strings) can be large!
 app.use(cors());
 app.use(express.json({ limit: '10mb' })); 
@@ -15,16 +26,16 @@ mongoose.connect(mongoURI)
   .then(() => console.log('✅ Connected to Permanent MongoDB Database!'))
   .catch(err => console.error('❌ MongoDB Connection Error:', err));
 
-// 1. UPGRADED DATABASE SCHEMA (Now holds EVERYTHING)
+// DATABASE SCHEMA
 const studentSchema = new mongoose.Schema({
     name: { type: String, required: true },
     id: { type: String, required: true, unique: true },
     studentClass: String,
     term: String,
-    photoData: String, // This stores the image!
-    subjects: Array,   // This stores the list of subjects and scores
-    affective: Object, // This stores the 1-5 ratings
-    remarks: Object    // This stores the teacher/principal comments
+    photoData: String, 
+    subjects: Array,   
+    affective: Object, 
+    remarks: Object    
 });
 
 const Student = mongoose.model('Student', studentSchema);
@@ -50,7 +61,7 @@ app.get('/api/check-result', async (req, res) => {
     }
 });
 
-// 2. UPGRADED UPLOAD ROUTE
+// UPLOAD ROUTE
 app.post('/api/upload-result', async (req, res) => {
     try {
         const newStudent = new Student({
@@ -78,4 +89,3 @@ app.post('/api/upload-result', async (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
-app.set('trust proxy', true);
